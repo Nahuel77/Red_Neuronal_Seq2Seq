@@ -27,7 +27,7 @@ Imaginemos que nuestra red esta entrenada con tokens de cifras numericas del est
     [[7,2,8,4,3], [6,9,4,7,1], [2,5,1,8,5], ...]
 
 Se le pasa un primer dato a la red para que prediga la secuencia correcta.
-A tal dato se lo denomina SOS.
+A tal dato se lo denomina SOS (Start of Secuence).
 Supongamos que el SOS es 7. La red inferirá por lo aprendido que sigue un 2; y si venia un 7 y luego un 2, inferirá que sigue un 8... y asi.
 
 Y si en el batch hubieran dos o más token que comenzaran con 7?
@@ -119,6 +119,57 @@ La transformada de los pesos weight.T y los bias. Son propios de la clase y no d
 Decoder finalmente retorna logits, h y c
 
     return logits, h, c
+
+Se va visualizando ahora el porque del nombre Secuancia a Secuencia. Encoder a Decoder.
+
+Antes de seguir con la explicación, comento un dato interesante que vi en un video. En 2016 Google implemento NMT (Neural Machine Translator) a su traductor. Y fue entonces cuando el traductor de google realmente comenzó a funcionar con la efectividad que conocemos ahora. Antes de eso, no era tan buen traductor.
+Originalmente me planteé hacer un traductor como proyecto. Pero asumí que el dataset y entrenamiento podría ser excesivo para mis recursos de hardware (una notebook con GPU limitado de motherboard).
+
+Sin embargo pensemos en el ejemplo del traductor para entender mejor como trabaja seq2seq.
+
+Encoder recibirá una frase en español. Por ejemplo "Hola mundo". Genera las salidas propias de LSTM h y c.
+Decorder recibe esta información y produce las salidas. La clase seq2seq es la encargada de gestionar estos cambios entre otras funciones como calcular la perdida.
+
+        Encoder LSTM                      Decoder LSTM
+    {[Hola] -> [Mundo]} ----h---> {[SOS]:Hello -> [Hello]:World}
+
+Como se observa en la clase Seq2seq, el constructor recibe tanto al encoder como al decoder y los instancia como self.
+En nuestro ciclo for de epocas:
+
+    for epoch in range(num_epochs):
+        X, Y = generate_batch(batch_size, seq_length, vocab_size)
+
+tenemos la declaracion de los batchs X e Y. Estos son similares y uno corresponde a la entrada y otro a la salida esperada para el entrenamiento. Concepto que ya vimos antes en otras redes.
+Luego pasamos a model los batchs y esto es equivalente a pasarselos al forward.
+
+    output = model(X, Y)
+    Es equivalente a:
+    output = model.forward(X, Y)
+    Porque asi funciona Torch :/
+
+Mirando la clase observamos que forward recibe tales parametros como src y trg:
+
+    class Seq2Seq(nn.Module):
+        def __init__(self, encoder, decoder):
+            super().__init__()
+            self.encoder = encoder
+            self.decoder = decoder
+
+        def forward(self, src, trg, teacher_forcing_ratio=0.5):
+            batch_size, trg_len = trg.shape
+            vocab_size = self.decoder.fc.out_features
+            outputs = torch.zeros(batch_size, trg_len, vocab_size).to(device)
+
+            h, c = self.encoder(src)
+            input = trg[:, 0].unsqueeze(1)  # primer token (podría ser un <SOS>)
+
+            for t in range(1, trg_len):
+                output, h, c = self.decoder(input, h, c)
+                outputs[:, t] = output.squeeze(1)
+                top1 = output.argmax(2)
+                input = trg[:, t].unsqueeze(1) if random.random() < teacher_forcing_ratio else top1
+
+            return outputs
 
 
 

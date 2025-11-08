@@ -54,7 +54,7 @@ class Seq2Seq(nn.Module):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-        
+
     def forward(self, src, trg, teacher_forcing_ratio=0.5):
         batch_size, trg_len = trg.shape
         vocab_size = self.decoder.fc.out_features
