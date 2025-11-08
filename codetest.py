@@ -10,5 +10,3 @@ embedding_dim = 16
 hidden_dim = 32
 num_epochs = 2000
 batch_size = 64
-
-fc = nn.Linear(hidden_dim, vocab_size)

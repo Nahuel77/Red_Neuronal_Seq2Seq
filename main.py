@@ -30,7 +30,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
-    
+
     def forward(self, x):
         emb = self.embedding(x)
         outputs, (h, c) = self.lstm(emb)
@@ -66,6 +66,7 @@ class Seq2Seq(nn.Module):
         for t in range(1, trg_len):
             output, h, c = self.decoder(input, h, c)
             outputs[:, t] = output.squeeze(1)
+            print(outputs)
             top1 = output.argmax(2)
             input = trg[:, t].unsqueeze(1) if random.random() < teacher_forcing_ratio else top1
 
