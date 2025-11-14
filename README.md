@@ -356,7 +356,7 @@ El decoder finalmente retorna:
 
 Los demas ya esta visto.
 
-Final.
+<h3>Final.</h3>
 
 Creo que si tenemos que mirar el salto que hizo esta red, comparada con RNN, es claro que demuestra la importancia del Forward... Es el corazon de una red.
 Aquí tenemos 3 forward LSTM directos (En encoder, en decoder y en el modelo). Y 1 mas, indirecto, si consideramos la transformación linear en el decoder. Pero solo 1 backward.
