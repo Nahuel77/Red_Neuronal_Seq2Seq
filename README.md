@@ -239,6 +239,123 @@ Y ya estara aprendiendo en cada epoch. Vemos que en cada epoch tambien limpia el
 
 Realmente no creo que sea necesario seguir explicando el resto del codigo. Son etapas como evaluación y aunque no esta presente, podrian venir otras como el uso directo de la red ya entrenada, o KPIs.
 
+<h2>Attention</h2>
+
+Honestamente no voy a parar a explicar mucho. No lo creo necesario. Si llegaste hasta aca vas a poder seguir el hilo del codigo. Yo no voy a enseñar a analisar codigo ajeno en este README. Cada quien sabra como verlo.
+Miremos por el inicio los pasos de como lo miro yo. Por que no es nada de otro mundo. Una clase mas y un pase de mano de datos. Pero antes quiero señalar que Torch no tiene ninguna clase reservada para Attention. Lo que lo vuelve a mi parecer mas facil cuando se trata de leer codigo.
+
+    attn = Attention(hidden_dim)
+    encoder = Encoder(vocab_size, embedding_dim, hidden_dim)
+    decoder = Decoder(vocab_size, embedding_dim, hidden_dim, attn)
+    model = Seq2Seq(encoder, decoder).to(device)
+
+Mirando el entrenamiento, se ve claramente que se inicia una clase Attention, ademas del encoder, el decoder y el modelo. Un camino es mirar hacia atras, que hace Attention, pero habiendo hecho ya ese camino, mejor vamos por su opción de mirar para adelante.
+La clase instanciada llamada attn se envia como parametro a la instanciación del decoder. Y decoder a su vez se pasa al modelo.
+
+Ya sabemos como funciona el modelo en Seq2seq, pero si miramos como usa el modelo al decoder, vemos que el nuevo parametro es encoder_outputs.
+
+    encoder_outputs, (h, c) = self.encoder(src)
+
+Entonces vamos a ver al encoder.
+
+    return outputs, (h, c)
+
+Vemos que esta vez el encoder efectivamente retorna y usa outputs. Cosa que en Seq2seq plano no hacia, ya que outputs quedaba como variable llamada, inicializada y olvidada. encoder_outputs es eso.
+Luego decoder valua ouputs a el self.attention recibido como clase.
+
+    self.attention = attention
+
+El decoder luego ejecuta el Attention guardando lo retornado en attn_weights
+
+    attn_weights = self.attention(hidden_last, encoder_outputs)
+
+Antes de seguir con lo que hace el forward en el decoder vamos a mirar la clase Attention
+
+    class Attention(nn.Module):
+        def __init__(self, hidden_dim):
+            super().__init__()
+            self.attn = nn.Linear(hidden_dim * 2, hidden_dim)
+            self.v = nn.Linear(hidden_dim, 1, bias=False)
+
+        def forward(self, hidden, encoder_outputs):
+            src_len = encoder_outputs.size(1)
+
+            # repetir hidden por src_len para poder concatenar
+            hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)
+
+            # calcular "energías"
+            energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
+            attention = self.v(energy).squeeze(2)
+
+            return F.softmax(attention, dim=1)
+
+Inicializa con un parametro, hidden_dim, que no es mas que una medida de arquitectura. Toma esa medida y instancia como self a dos transformaciones lineales, Linear, de la clase de Torch. Y si miramos su forward, recibe 2 parámetros (self nunca se cuenta como parametro), de ahi veniamos.
+
+Entonces, en decoder el forward calculaba los pesos en attn_weights y recordemos que teniamos los outputs que nos retornó el encoder como encoder_outputs y hidden_last, que es los estados h[-1]. Con eso ejecutamos el forward en Attention.
+
+Attention retorna return F.softmax(attention, dim=1) que ya lo vimos en otras redes, son los valores para ajustes del backward.
+
+Attention otra capa pero implementada como clase, donde se aplica tanh a h_t con src_len, que no es mas que el tamaño de los outputs desmenuzados (5) ya definidos en la medida arquitectonica seq_length. Consulte a ChatGPT porque no lo tomaba directamente de ahi, se supone que es una buena practica tomar la medida desde el output recibido (Supongo que tiene sentido en codigo desacoplado).
+
+En fin. Se concatenan los dos valores con torch.cat() en un vector de valores sin repetir. Se lo envía a self.attn() con su dimensión (ver documentacion de la libreria) y se almacena su tanh en una variable llaamda energy.
+
+    energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=2)))
+
+Esto a su ves se envia a self.v que es una nn.Linear sin bias. Y tambien se restructura las dimensiones al contrario de lo que vimos en unsqueeze().
+
+    attention = self.v(energy).squeeze(2)
+
+La clase Attention finalmente retorna la variable attention pasada por softmax
+
+    return F.softmax(attention, dim=1)
+
+Si lo analisamos con paciencia, vemos que simplemente es otra capa filtrando valores por segmentos de outputs. Y luego retorna esos valores con softmax para que se interpreten como cambios de pesos.
+
+Miremos de nuevo .squeeze y .unsqueeze con un codigo simple:
+
+    cad = torch.tensor([[1,2,3],[4,5,9],[6,7,8]])
+    print(cad)
+    print(cad.unsqueeze(1))
+    print(cad.squeeze(1))
+
+La salida por consola para este codigo es:
+
+    tensor([[1, 2, 3],
+            [4, 5, 9],
+            [6, 7, 8]])
+
+    tensor([[[1, 2, 3]],
+            [[4, 5, 9]],
+            [[6, 7, 8]]])
+
+    tensor([[1, 2, 3],
+            [4, 5, 9],
+            [6, 7, 8]])
+
+La funcion de torch unsqueeze agrupa todo en un nuevo [], y la funcion squeeze revierte la agrupación. Entonces basicamente agrupamos para obtener promedios de Attention. Eso explicado a lo bruto, tener en cuenta eso.
+
+El decoder recibe entonces attn_weights y sucede lo siguiente:
+
+    context = torch.bmm(attn_weights, encoder_outputs)
+
+La funcion torch.bmm (torch.bmm significa Batch Matrix Multiplication, o multiplicación de matrices por lotes) calcula lo que llamaremos contexto. Y basicamente es otra coleccion de valores que nos dice al modelo a que debe poner mas atención. Como? concatena context con el embeding
+
+    rnn_input = torch.cat((emb, context), dim=2)
+
+Las salidas junto con los estados h y c se retornan con un nn.LSTM al que le pasamos rnn_input:
+
+    outputs, (hidden, cell) = self.lstm(rnn_input, (hidden, cell))
+
+Se calculan las predicciones y se agrupan con .unsqueeze() en el retorno.
+
+    prediction = self.fc(torch.cat((outputs.squeeze(1), context.squeeze(1)), dim=1))
+
+El decoder finalmente retorna:
+
+    return prediction.unsqueeze(1), hidden, cell, attn_weights
+
+Los demas ya esta visto.
+
 Final.
 
 Creo que si tenemos que mirar el salto que hizo esta red, comparada con RNN, es claro que demuestra la importancia del Forward... Es el corazon de una red.

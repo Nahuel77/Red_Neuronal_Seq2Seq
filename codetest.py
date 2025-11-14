@@ -11,9 +11,10 @@ hidden_dim = 32
 num_epochs = 2000
 batch_size = 64
 
-def generate_batch(batch_size, seq_length, vocab_size):
-    X = np.random.randint(1, vocab_size, (batch_size, seq_length)) # 
-    Y = X.copy()  # salida igual a la entrada
-    return torch.tensor(X, dtype=torch.long), torch.tensor(Y, dtype=torch.long)
+cad = torch.tensor([[1,2,3],[4,5,9],[6,7,8]])
 
-print(generate_batch(batch_size, seq_length, vocab_size))
+print(cad)
+
+print(cad.unsqueeze(1))
+
+print(cad.squeeze(1))
