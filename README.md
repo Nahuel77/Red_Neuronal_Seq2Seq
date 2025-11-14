@@ -295,7 +295,7 @@ Entonces, en decoder el forward calculaba los pesos en attn_weights y recordemos
 
 Attention retorna return F.softmax(attention, dim=1) que ya lo vimos en otras redes, son los valores para ajustes del backward.
 
-Attention otra capa pero implementada como clase, donde se aplica tanh a h_t con src_len, que no es mas que el tamaño de los outputs desmenuzados (5) ya definidos en la medida arquitectonica seq_length. Consulte a ChatGPT porque no lo tomaba directamente de ahi, se supone que es una buena practica tomar la medida desde el output recibido (Supongo que tiene sentido en codigo desacoplado).
+Attention es otra capa, pero implementada como clase; donde se aplica tanh a h_t con src_len, que no es mas que el tamaño de los outputs desmenuzados (5) ya definidos en la medida arquitectonica seq_length. Consulte a ChatGPT porque no lo tomaba directamente de ahi, se supone que es una buena practica tomar la medida desde el output recibido (Supongo que tiene sentido en codigo desacoplado).
 
 En fin. Se concatenan los dos valores con torch.cat() en un vector de valores sin repetir. Se lo envía a self.attn() con su dimensión (ver documentacion de la libreria) y se almacena su tanh en una variable llaamda energy.
 
