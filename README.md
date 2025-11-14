@@ -250,7 +250,7 @@ Miremos por el inicio los pasos de como lo miro yo. Por que no es nada de otro m
     model = Seq2Seq(encoder, decoder).to(device)
 
 Mirando el entrenamiento, se ve claramente que se inicia una clase Attention, ademas del encoder, el decoder y el modelo. Un camino es mirar hacia atras, que hace Attention, pero habiendo hecho ya ese camino, mejor vamos por su opción de mirar para adelante.
-La clase instanciada llamada attn se envia como parametro a la instanciación del decoder. Y decoder a su vez se pasa al modelo.
+La clase instanciada llamada attn se envia como parametro a la instanciación del decoder. Y decoder a su vez se pasa al model Seq2seq.
 
 Ya sabemos como funciona el modelo en Seq2seq, pero si miramos como usa el modelo al decoder, vemos que el nuevo parametro es encoder_outputs.
 
